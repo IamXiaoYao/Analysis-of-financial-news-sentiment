@@ -1,4 +1,6 @@
 import asyncio
+import os
+import random
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
@@ -8,6 +10,8 @@ from lxml import etree
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 # Initialize logger
 logger = Log.InMemoryLogger()
@@ -17,6 +21,13 @@ options.add_argument("--headless")
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_experimental_option("excludeSwitches", ["enable-automation"])
 options.add_experimental_option("useAutomationExtension", False)
+
+def ensure_directory_exists(directory):
+    """
+    Ensure the specified directory exists. Create it if it doesn't exist.
+    """
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
 
 async def get_page_source(url, driver_path):
@@ -38,11 +49,16 @@ async def get_page_source(url, driver_path):
         try:
             await loop.run_in_executor(executor, driver.get, url)
             logger.log(f"Page loaded for: {url}")
+
+            # Wait for the news section to load
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "news-stream"))
+            )
             # Scroll down to load additional content
             for i in range(3):  # Adjust the number of scrolls as needed
                 logger.log(f"Scrolling down ({i + 1}/3) for: {url}")
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                await asyncio.sleep(2)  # Wait for content to load
+                await asyncio.sleep(5)  # Wait for content to load
 
             # Find the parent section by class name
             parent_class = "news-stream"
@@ -99,18 +115,36 @@ async def parse_data(url, driver_path="/usr/local/bin/chromedriver"):
     return news_lists
 
 
-async def fetch_all_data(urls, driver_path="/usr/local/bin/chromedriver"):
+async def fetch_all_data(urls, driver_path="/usr/local/bin/chromedriver",max_concurrent_tasks=2):
     """
     Fetch data concurrently for all URLs.
     """
     logger.log("Starting data fetching for all URLs...")
-    tasks = [parse_data(url, driver_path) for url in urls]
+    # Limit the number of concurrent tasks
+    semaphore = asyncio.Semaphore(max_concurrent_tasks)
+    async def fetch_with_semaphore(url, retries=3):
+        for attempt in range(retries):
+            try:
+                logger.log(f"Attempt {attempt + 1} for URL: {url}")
+                async with semaphore:
+                    return await parse_data(url, driver_path)
+            except Exception as e:
+                logger.log(f"Error on attempt {attempt + 1} for {url}: {e}")
+                if attempt < retries - 1:
+                    logger.log(f"Retrying URL: {url} after a delay...")
+                    await asyncio.sleep(random.uniform(5, 10))  # Random delay before retry
+        logger.log(f"All retry attempts failed for {url}")
+        return []
+        
+    tasks = [fetch_with_semaphore(url) for url in urls]
     results = await asyncio.gather(*tasks, return_exceptions=True)
+
     data = []
     for result in results:
         if isinstance(result, list):  # Valid data
             data.extend(result)
         else:  # Handle exceptions
+            logger.log(f"Error fetching data: {result}")
             print(f"Error fetching data: {result}")
     logger.log("Data fetching complete for all URLs.")
     return data
@@ -120,6 +154,8 @@ def SaveExcel(data, filename):
     """
     Save the data to a CSV file.
     """
+    directory = os.path.dirname(filename)
+    ensure_directory_exists(directory) 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename_with_time = f"{filename}_{timestamp}.csv"
     df = pd.DataFrame(data)
@@ -129,11 +165,12 @@ def SaveExcel(data, filename):
 
 
 if __name__ == "__main__":
-    file_name = "yahoo_news"
-    c_name = ["TSLA", "RKLB", "RGTI", "NVDA"]
+    file_name = "Data/yahoo_news"
+    c_name = ["TSLA", "MSTR", "ORCL", "NVDA", "AAPL"]
     urls = [f"https://finance.yahoo.com/quote/{name}/latest-news/" for name in c_name]
     try:
         logger.log("Starting the program...")
+        ensure_directory_exists("Data")
         print("Fetching data...")
         flattened_data = asyncio.run(fetch_all_data(urls))
         SaveExcel(flattened_data, file_name)
@@ -141,5 +178,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
 
-    log_filename = "process_log.txt"
+    log_filename = "Data/process_log.txt"
     logger.save_to_file(log_filename)

@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 
@@ -30,10 +31,14 @@ class InMemoryLogger:
         """
         self.logs.clear()
 
-    def save_to_file(self, filename="log.txt"):
+    def save_to_file(self, filename="Data/log.txt"):
         """
         Save logs to a text file.
         """
+        directory = os.path.dirname(filename)
+        if directory:  # Check if the filename includes a directory
+            os.makedirs(directory, exist_ok=True)
+
         with open(filename, "w") as file:
             file.write(self.get_logs())
         print(f"Logs saved to {filename}")
