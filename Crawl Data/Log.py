@@ -1,9 +1,11 @@
 from datetime import datetime
 
+
 class InMemoryLogger:
     """
     A simple logger that stores logs in memory.
     """
+
     def __init__(self):
         self.logs = []
 
@@ -27,7 +29,7 @@ class InMemoryLogger:
         Clear all logs.
         """
         self.logs.clear()
-    
+
     def save_to_file(self, filename="log.txt"):
         """
         Save logs to a text file.
