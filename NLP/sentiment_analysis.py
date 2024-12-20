@@ -1,3 +1,3 @@
-import os 
+import os
 
 os.getcwd()

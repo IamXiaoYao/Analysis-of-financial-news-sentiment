@@ -22,6 +22,7 @@ options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_experimental_option("excludeSwitches", ["enable-automation"])
 options.add_experimental_option("useAutomationExtension", False)
 
+
 def ensure_directory_exists(directory):
     """
     Ensure the specified directory exists. Create it if it doesn't exist.
@@ -115,13 +116,16 @@ async def parse_data(url, driver_path="/usr/local/bin/chromedriver"):
     return news_lists
 
 
-async def fetch_all_data(urls, driver_path="/usr/local/bin/chromedriver",max_concurrent_tasks=2):
+async def fetch_all_data(
+    urls, driver_path="/usr/local/bin/chromedriver", max_concurrent_tasks=2
+):
     """
     Fetch data concurrently for all URLs.
     """
     logger.log("Starting data fetching for all URLs...")
     # Limit the number of concurrent tasks
     semaphore = asyncio.Semaphore(max_concurrent_tasks)
+
     async def fetch_with_semaphore(url, retries=3):
         for attempt in range(retries):
             try:
@@ -132,10 +136,12 @@ async def fetch_all_data(urls, driver_path="/usr/local/bin/chromedriver",max_con
                 logger.log(f"Error on attempt {attempt + 1} for {url}: {e}")
                 if attempt < retries - 1:
                     logger.log(f"Retrying URL: {url} after a delay...")
-                    await asyncio.sleep(random.uniform(5, 10))  # Random delay before retry
+                    await asyncio.sleep(
+                        random.uniform(5, 10)
+                    )  # Random delay before retry
         logger.log(f"All retry attempts failed for {url}")
         return []
-        
+
     tasks = [fetch_with_semaphore(url) for url in urls]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -155,7 +161,7 @@ def SaveExcel(data, filename):
     Save the data to a CSV file.
     """
     directory = os.path.dirname(filename)
-    ensure_directory_exists(directory) 
+    ensure_directory_exists(directory)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename_with_time = f"{filename}_{timestamp}.csv"
     df = pd.DataFrame(data)
