@@ -2,13 +2,15 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-import Log
 import pandas as pd
 from lxml import etree
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+
+import Log
+
 
 # Initialize logger
 logger = Log.InMemoryLogger()
