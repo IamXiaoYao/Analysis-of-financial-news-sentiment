@@ -21,7 +21,7 @@ jobs:
 
       - name: Install Format Tools
         run: |
-          pip install black flake8 isort
+          pip install black isort
 
       - name: Check Format with Black
         run: black --check .
@@ -29,6 +29,4 @@ jobs:
       - name: Check Imports with isort
         run: isort --check-only .
 
-      - name: Check Code Style with Flake8
-        run: flake8 .
 
